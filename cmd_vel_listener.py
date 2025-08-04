@@ -418,7 +418,7 @@ if __name__ == '__main__':
 explore:
   ros__parameters:
     robot_base_frame: base_link
-    costmap_topic: /map
+    costmap_topic: /map  
     odom_topic: /odometry/filtered
     scan_topic: /scan
     explore_frequency: 1.0
