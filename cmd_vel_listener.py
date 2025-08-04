@@ -290,3 +290,127 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist, TransformStamped, Quaternion
+from nav_msgs.msg import Odometry
+from tf2_ros import TransformBroadcaster
+import serial
+from tf_transformations import quaternion_from_euler
+import math
+from collections import deque
+
+class CmdVelListener(Node):
+    def __init__(self):
+        super().__init__('cmd_vel_listener')
+        self.serial_port = serial.Serial('/dev/ttyACM0', 115200, timeout=0.1)
+        self.cmd_vel_sub = self.create_subscription(Twist, '/cmd_vel', self.cmd_vel_callback, 10)
+        self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
+        self.tf_broadcaster = TransformBroadcaster(self)
+        self.timer = self.create_timer(0.01, self.update_odometry_and_serial)
+        self.get_logger().info("Connected to /dev/ttyACM0")
+        self.x = 0.0
+        self.y = 0.0
+        self.theta = 0.0
+        self.last_vel = Twist()
+        self.last_time = self.get_clock().now()
+        self.command_queue = deque()  # Coada pentru comenzi
+        self.is_executing = False  # Indica dacă o comandă este în execuție
+
+    def send_command(self, pwmR, pwmL, revR, revL):
+        pwmR = constrain(pwmR, 0, 255)
+        pwmL = constrain(pwmL, 0, 255)
+        cmd = f"<0,2,{pwmR},{pwmL},{1 if revR else 0},{1 if revL else 0}>"
+        self.serial_port.write(cmd.encode())
+        self.get_logger().info(f"Sent command: {cmd}")
+
+    def cmd_vel_callback(self, msg):
+        # Adaugă comanda în coadă doar dacă nu este în execuție
+        if not self.is_executing:
+            self.command_queue.append(msg)
+        else:
+            self.get_logger().info("Command queued, waiting for previous command to finish")
+
+    def update_odometry_and_serial(self):
+        # Procesează coada dacă nu este goală și nu execută o comandă
+        if self.command_queue and not self.is_executing:
+            msg = self.command_queue.popleft()
+            self.is_executing = True
+            pwm = int(abs(msg.linear.x) * 255 / 1.0)  # Viteză mică
+            pwm = constrain(pwm, 0, 255)
+
+            # Comportament roți
+            if msg.linear.x > 0.1:
+                self.send_command(pwm, pwm, False, True)  # Înainte
+            elif msg.linear.x < -0.1:
+                self.send_command(pwm, pwm, True, True)   # Înapoi
+            elif msg.angular.z > 0.1:
+                self.send_command(pwm, pwm, True, False)  # Dreapta
+            elif msg.angular.z < -0.1:
+                self.send_command(pwm, pwm, False, True)  # Stânga
+            else:
+                self.send_command(0, 0, False, False)     # Oprire
+
+            self.last_vel = msg
+
+        # Citește feedback-ul de la Arduino
+        if self.serial_port.in_waiting > 0:
+            line = self.serial_port.readline().decode().strip()
+            if line.startswith("Set motors"):
+                self.get_logger().info(f"Arduino feedback: {line}")
+                self.is_executing = False  # Comanda s-a terminat, permite următoarea
+
+        # Actualizează odometria
+        current_time = self.get_clock().now()
+        dt = (current_time - self.last_time).nanoseconds / 1e9
+        self.last_time = current_time
+
+        v_x = self.last_vel.linear.x
+        v_th = self.last_vel.angular.z
+        self.x += v_x * math.cos(self.theta) * dt
+        self.y += v_x * math.sin(self.theta) * dt
+        self.theta += v_th * dt
+
+        odom = Odometry()
+        odom.header.stamp = current_time.to_msg()
+        odom.header.frame_id = 'odom'
+        odom.child_frame_id = 'base_link'
+        odom.pose.pose.position.x = self.x
+        odom.pose.pose.position.y = self.y
+        q = quaternion_from_euler(0, 0, self.theta)
+        odom.pose.pose.orientation = Quaternion(x=q[0], y=q[1], z=q[2], w=q[3])
+        odom.twist.twist.linear.x = v_x
+        odom.twist.twist.angular.z = v_th
+        self.odom_pub.publish(odom)
+
+        t = TransformStamped()
+        t.header.stamp = odom.header.stamp
+        t.header.frame_id = 'odom'
+        t.child_frame_id = 'base_link'
+        t.transform.translation.x = self.x
+        t.transform.translation.y = self.y
+        t.transform.rotation = odom.pose.pose.orientation
+        self.tf_broadcaster.sendTransform(t)
+
+    def destroy_node(self):
+        self.serial_port.close()
+        super().destroy_node()
+
+def constrain(val, min_val, max_val):
+    return min(max_val, max(min_val, val))
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = CmdVelListener()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
