@@ -28,7 +28,7 @@ bt_navigator:
     global_frame: map
     robot_base_frame: base_link
     odom_topic: /odometry/filtered
-    default_bt_xml_filename: navigate_w_replanning_and_recovery.xml
+    default_bt_xml_filename: navigate_to_pose_w_replanning_and_recovery.xml
 
 waypoint_follower:
   ros__parameters:
@@ -75,7 +75,7 @@ global_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
         inflation_radius: 0.55
-      transform_tolerance: 0.3
+      transform_tolerance: 0.5
 
 local_costmap:
   local_costmap:
@@ -105,4 +105,4 @@ local_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
         inflation_radius: 0.55
-      transform_tolerance: 0.3
+      transform_tolerance: 0.5
