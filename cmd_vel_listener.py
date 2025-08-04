@@ -414,3 +414,32 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+explore:
+  ros__parameters:
+    robot_base_frame: base_link
+    costmap_topic: /map
+    odom_topic: /odometry/filtered
+    scan_topic: /scan
+    explore_frequency: 1.0
+    planner_frequency: 0.5
+    min_frontier_size: 0.5
+    progress_timeout: 30.0
+    visualize: true
+
+ekf_filter_node:
+  ros__parameters:
+    transform_time_offset: 0.1
+    transform_timeout: 0.0
+    two_d_mode: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+    odom0: /odom
+    odom0_config: [true, true, false, false, false, true, false, false, false, false, false, false, false, false, false]
+    odom0_differential: false
+    imu0: /imu/data
+    imu0_config: [false, false, false, true, true, true, false, false, false, true, true, true, false, false, false]
+    imu0_differential: false
+    imu0_remove_gravitational_acceleration: true
