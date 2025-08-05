@@ -63,51 +63,66 @@ def generate_launch_description():
             'map_subscribe_transient_local', default_value='true',
             description='Whether to set the map subscriber QoS to transient local'),
 
+        # RPLIDAR node
+        Node(
+            package='rplidar_ros',
+            executable='rplidar_composition',
+            name='rplidar_node',
+            parameters=[{'serial_port': '/dev/ttyUSB0', 'frame_id': 'laser_frame', 'use_sim_time': use_sim_time}],
+            output='screen'
+        ),
+
         # Existing nodes
         Node(
             package='keyboard_teleop_pkg',
             executable='cmd_vel_listener',
             name='cmd_vel_listener',
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': use_sim_time}],
+            output='screen'
         ),
         Node(
             package='keyboard_teleop_pkg',
             executable='imu_node',
             name='imu_node',
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': use_sim_time}],
+            output='screen'
         ),
         Node(
             package='slam_toolbox',
             executable='sync_slam_toolbox_node',
             name='slam_toolbox',
-            parameters=[os.path.join(config_dir, 'slam_toolbox_config.yaml'), {'use_sim_time': True}]
+            parameters=[os.path.join(config_dir, 'slam_toolbox_config.yaml'), {'use_sim_time': use_sim_time}],
+            output='screen'
         ),
         Node(
             package='robot_localization',
             executable='ekf_node',
             name='ekf_filter_node',
-            output='screen',
-            parameters=[os.path.join(config_dir, 'ekf_config.yaml'), {'use_sim_time': True}]
+            parameters=[os.path.join(config_dir, 'ekf_config.yaml'), {'use_sim_time': use_sim_time}],
+            output='screen'
         ),
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
             name='robot_state_publisher',
-            parameters=[{'robot_description': open(os.path.join(urdf_dir, 'robot.urdf')).read()}, {'use_sim_time': True}]
+            parameters=[{'robot_description': open(os.path.join(urdf_dir, 'robot.urdf')).read()}, {'use_sim_time': use_sim_time}],
+            output='screen'
         ),
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='laser_to_base_link_tf',
             arguments=['0', '0', '0.1', '0', '0', '0', 'base_link', 'laser_frame'],
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': use_sim_time}],
+            output='screen'
         ),
         Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='imu_to_base_link_tf',
             arguments=['0', '0', '0.1', '0', '0', '0', 'base_link', 'imu_link'],
-            parameters=[{'use_sim_time': True}]
+            parameters=[{'use_sim_time': use_sim_time}],
+            output='screen'
         ),
 
         # Nav2 nodes
@@ -152,5 +167,14 @@ def generate_launch_description():
             output='screen',
             parameters=[{'use_sim_time': use_sim_time},
                         {'autostart': autostart},
-                        {'node_names': ['controller_server', 'planner_server', 'recoveries_server', 'bt_navigator', 'waypoint_follower']}])
+                        {'node_names': ['controller_server', 'planner_server', 'recoveries_server', 'bt_navigator', 'waypoint_follower']}]),
+        
+        # RViz2 node
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            parameters=[{'use_sim_time': use_sim_time}],
+            output='screen'
+        )
     ])
