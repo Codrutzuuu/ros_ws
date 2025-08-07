@@ -565,3 +565,37 @@ recoveries_server:
 robot_state_publisher:
   ros__parameters:
     use_sim_time: False
+
+
+def cmd_vel_callback(self, msg):
+    linear_x = msg.linear.x
+    angular_z = msg.angular.z
+    max_speed = 0.5 
+    max_pwm = 255 
+    pwm_scale = max_pwm / max_speed
+
+   
+    if linear_x > 0.1: 
+        revR, revL = 1, 0
+        pwmR = int(min(abs(linear_x + angular_z) * pwm_scale, max_pwm))
+        pwmL = int(min(abs(linear_x - angular_z) * pwm_scale, max_pwm))
+    elif linear_x < -0.1: 
+        revR, revL = 0, 1
+        pwmR = int(min(abs(linear_x + angular_z) * pwm_scale, max_pwm))
+        pwmL = int(min(abs(linear_x - angular_z) * pwm_scale, max_pwm))
+    elif angular_z > 0.1:
+        revR, revL = 0, 0
+        pwmR = int(min(abs(angular_z) * pwm_scale, max_pwm))
+        pwmL = int(min(abs(angular_z) * pwm_scale, max_pwm))
+    elif angular_z < -0.1:
+        revR, revL = 1, 1
+        pwmR = int(min(abs(angular_z) * pwm_scale, max_pwm))
+        pwmL = int(min(abs(angular_z) * pwm_scale, max_pwm))
+    else: 
+        revR, revL = 0, 0
+        pwmR, pwmL = 0, 0
+
+    cmd = f"<{revR},{pwmR},{revL},{pwmL}>"
+    self.serial_port.write(cmd.encode())
+    self.get_logger().info(f'Sent to Arduino: {cmd}')
+    self.last_vel = msg
